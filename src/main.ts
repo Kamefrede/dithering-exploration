@@ -1,4 +1,5 @@
 import ModuleFactory, { type MainModule } from '../wasm/main';
+import { optimise } from '@jsquash/oxipng';
 
 const image: HTMLImageElement = document.getElementById(
   'image'
@@ -8,6 +9,7 @@ const canvas: HTMLCanvasElement = document.getElementById(
 )! as HTMLCanvasElement;
 const context = canvas.getContext('2d', { willReadFrequently: true })!;
 const filepicker = document.querySelector('input')!;
+const button: HTMLButtonElement = document.querySelector('button')!;
 let module: MainModule | undefined;
 
 ModuleFactory().then((loadedModule) => {
@@ -31,8 +33,11 @@ filepicker.addEventListener('change', () => {
 
 image.addEventListener('load', () => {
   if (image.src === '') {
+    button.disabled = true;
     return;
   }
+
+  button.disabled = false;
 
   if (!module) {
     console.error('Tried to load image onto canvas but WASM was not ready.');
@@ -47,6 +52,23 @@ image.addEventListener('load', () => {
   const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
   const newImageData = weightedAverageGrayscale(module, context, imageData);
   context.putImageData(newImageData, 0, 0);
+});
+
+button.addEventListener('click', async () => {
+  const imageData = context.getImageData(0, 0, image.width, image.height);
+  const buffer = await optimise(imageData, { level: 3 });
+  const blob = new Blob([buffer], { type: 'image/png' });
+
+  const link = document.createElement('a');
+
+  const url = URL.createObjectURL(blob);
+  link.href = url;
+
+  link.download = 'image.png';
+
+  link.click();
+
+  URL.revokeObjectURL(url);
 });
 
 function weightedAverageGrayscale(
@@ -85,7 +107,9 @@ function weightedAverageGrayscale(
     Module.HEAPU8.subarray(outputPointer, outputPointer + dataLength)
   );
 
-  console.log(Module.HEAPU8.subarray(outputPointer, outputPointer + dataLength))
+  console.log(
+    Module.HEAPU8.subarray(outputPointer, outputPointer + dataLength)
+  );
 
   Module._free(inputPointer);
   Module._free(outputPointer);
