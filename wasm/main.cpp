@@ -1,17 +1,41 @@
-
-#include "cstdint"
 #include "emscripten/em_macros.h"
+#include <emmintrin.h>
+#include <stdint.h>
+#include "wasm_simd128.h"
 
-extern "C" EMSCRIPTEN_KEEPALIVE void
+extern "C" void
+EMSCRIPTEN_KEEPALIVE
 weightedAverageGrayscale(uint8_t originalArray[], uint8_t destinationArray[],
                          int length) {
-  for (int i = 0; i < length; i += 4) {
-    uint8_t gray = originalArray[i] * 0.21 + originalArray[i + 1] * 0.72 +
-                   originalArray[i + 2] * 0.07;
+  const v128_t scaleR = wasm_f32x4_splat(0.21f);
+  const v128_t scaleG = wasm_f32x4_splat(0.72f);
+  const v128_t scaleB = wasm_f32x4_splat(0.07f);
 
-    destinationArray[i] = gray;
-    destinationArray[i + 1] = gray;
-    destinationArray[i + 2] = gray;
-    destinationArray[i + 3] = originalArray[i + 3];
+  for (int i = 0; i < length; i += 16) {
+    v128_t pixelData = wasm_v128_load((v128_t*)&originalArray[i]);
+
+    v128_t r = wasm_v128_and(pixelData, wasm_i32x4_splat(0xFF));
+    v128_t g = wasm_u32x4_shr(pixelData, 8);
+    g = wasm_v128_and(g, wasm_i32x4_splat(0xFF));
+    v128_t b = wasm_u32x4_shr(pixelData, 16);
+    b = wasm_v128_and(b, wasm_i32x4_splat(0xFF));
+
+    v128_t r_f = wasm_f32x4_convert_i32x4(r);
+    v128_t g_f = wasm_f32x4_convert_i32x4(g);
+    v128_t b_f = wasm_f32x4_convert_i32x4(b);
+
+    v128_t gray_f = wasm_f32x4_add(
+        wasm_f32x4_add(wasm_f32x4_mul(r_f, scaleR), wasm_f32x4_mul(g_f, scaleG)),
+        wasm_f32x4_mul(b_f, scaleB));
+
+    v128_t gray = _mm_cvtps_epi32(gray_f);
+
+    v128_t gray_packed = wasm_v128_or(wasm_v128_or(gray, wasm_i32x4_shl(gray, 8)), wasm_i32x4_shl(gray, 16));
+
+    v128_t alpha_mask = wasm_i32x4_splat(0xFF000000);
+    v128_t alpha = wasm_v128_and(pixelData, alpha_mask);
+    gray_packed = wasm_v128_or(gray_packed, alpha);
+
+    wasm_v128_store((v128_t*)&destinationArray[i], gray_packed);
   }
 }

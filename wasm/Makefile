@@ -15,7 +15,7 @@ OPT_FLAGS_DEBUG = -O0
 OPT_FLAGS_RELEASE = -O3
 
 # Common flags for both builds
-COMMON_FLAGS = -s MODULARIZE=1 -s EXPORT_ES6=1 -s USE_ES6_IMPORT_META=1 -s ENVIRONMENT='web' -s EXPORTED_FUNCTIONS='["_free","_malloc"]'
+COMMON_FLAGS = -s MODULARIZE=1 -s EXPORT_ES6=1 -s USE_ES6_IMPORT_META=1 -s ENVIRONMENT='web' -s EXPORTED_FUNCTIONS='["_free","_malloc"]' -s ALLOW_MEMORY_GROWTH=1 -msimd128 -msse2
 
 # Default target
 all: release
