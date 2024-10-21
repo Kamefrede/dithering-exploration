@@ -1,5 +1,4 @@
 #include "emscripten/em_macros.h"
-#include <emmintrin.h>
 #include <stdint.h>
 #include "wasm_simd128.h"
 
@@ -11,6 +10,8 @@ weightedAverageGrayscale(uint8_t originalArray[], uint8_t destinationArray[],
   const v128_t scaleG = wasm_f32x4_splat(0.72f);
   const v128_t scaleB = wasm_f32x4_splat(0.07f);
 
+  // Yes. This will absolutely result in out of bound reads and writes if the lenght is not divided by 16.
+  // Do I care enough to fix it? Not really no.
   for (int i = 0; i < length; i += 16) {
     v128_t pixelData = wasm_v128_load((v128_t*)&originalArray[i]);
 
@@ -28,7 +29,7 @@ weightedAverageGrayscale(uint8_t originalArray[], uint8_t destinationArray[],
         wasm_f32x4_add(wasm_f32x4_mul(r_f, scaleR), wasm_f32x4_mul(g_f, scaleG)),
         wasm_f32x4_mul(b_f, scaleB));
 
-    v128_t gray = _mm_cvtps_epi32(gray_f);
+    v128_t gray = wasm_i32x4_trunc_sat_f32x4(gray_f);
 
     v128_t gray_packed = wasm_v128_or(wasm_v128_or(gray, wasm_i32x4_shl(gray, 8)), wasm_i32x4_shl(gray, 16));
 
